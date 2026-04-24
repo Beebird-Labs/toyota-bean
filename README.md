@@ -85,3 +85,5 @@ Let's say we are sending the following data, and using a 5-bit stuffing rule:
 `1 1 1 1 1 [0] 1 0 0 0 0`
 
 (The [0] is the stuffed bit, forcing a transition).
+
+<img width="1280" height="167" alt="image" src="https://github.com/user-attachments/assets/46ea182b-1760-4655-b7d8-270bc3fae1a3" />
