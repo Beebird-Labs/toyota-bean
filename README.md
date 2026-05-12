@@ -48,8 +48,9 @@ A standard BEAN message frame consists of the following sequential fields:
 From an electrical and low-level signal perspective:
 
 - **Voltage Levels:** The bus typically operates at vehicle battery voltage (12V) or at 5V. The network idles in a recessive state and is actively pulled to a dominant state by an ECU's transceiver. [**Note:** My 2000 Toyota Crown (JZS173) transmits at 5V everywhere that I have seen it.]
-- **Bit Encoding:** BEAN relies on time-based bit pulses. Logic `1`s and `0`s are encoded using pulse-width variations (VPW) or NRZ (Non-Return-to-Zero), depending on the specific implementation generation.
+variations (VPW) or NRZ (Non-Return-to-Zero), depending on the specific implementation generation.
 - **Timing:** Operating at a maximum speed of 10 kbps, the minimum bit duration is roughly 100 microseconds. This slow transmission rate makes the protocol highly resilient to the electromagnetic interference (EMI) commonly found in automotive environments, completely eliminating the need for shielded or twisted-pair wiring.
+- **Bit Encoding:** BEAN relies on simple fixd-time. A logical `1` is 5V for 100μS, and a logical `0` is 0V for 100μS.
 - **Bit stuffing:** BEAN employs a technique used in digital communications called "bit stuffing" where extra, non-information bits are systematically inserted into a data stream. Please see "A Note on Bit Stuffing" below for more information.
 
 ### A Simple Example
