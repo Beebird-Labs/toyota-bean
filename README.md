@@ -1,6 +1,4 @@
-#The Toyota BEAN Protocal
-
-# The Toyota BEAN Protocal
+# The Toyota BEAN Protocol
 
 ## What is the BEAN Protocol?
 
