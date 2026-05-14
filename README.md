@@ -26,21 +26,6 @@ In Toyota and Lexus vehicles from the late 90s through the 2000s, BEAN did not o
 
 ## What does a BEAN message look like?
 
-At the physical and data-link layers, BEAN uses a single-wire bus where the voltage level indicates the bit state. The bus utilizes a **dominant and recessive** signaling method for arbitration, allowing the CSMA/CD (Carrier Sense Multiple Access with Collision Detection) mechanism to resolve collisions without data loss.
-
-A standard BEAN message frame consists of the following sequential fields:
-
-1. **SOF (Start of Frame):** A dominant bit/pulse that wakes up the receiving nodes and synchronizes their timing to indicate a new message is beginning.
-2. **PRI (Priority):** A 4-bit field that determines the message's priority. Lower values typically represent higher priority. If two ECUs transmit simultaneously, the one sending a dominant bit while the other sends a recessive bit wins arbitration and continues transmitting.
-3. **ML (Message Length):** A 4-bit field indicating the number of data bytes in the payload.
-4. **DEST ID (Destination ID):** An 8-bit field specifying the receiving ECU's address. It can target a specific node or act as a broadcast address.
-5. **SRC ID (Source ID):** An 8-bit field containing the address of the transmitting ECU.
-6. **DATA (Payload):** Between 1 and 11 bytes of actual information. This contains the commands (e.g., "roll down window") or status reports (e.g., "driver door is open").
-7. **CRC (Cyclic Redundancy Check):** An 8-bit checksum used by receivers to verify that the message wasn't corrupted by electrical noise during transmission.
-8. **EOD (End of Data):** A delimiter indicating the end of the payload and CRC.
-9. **ACK (Acknowledge):** A time slot where the targeted receiving ECU(s) pull the bus to the dominant state to confirm successful reception of the frame. If the sender does not see an ACK, it will typically retry the transmission (often up to 3 times).
-10. **EOF (End of Frame):** A sequence of recessive bits marking the absolute end of the message transmission, returning the bus to an idle state.
-
 ### Electrical & Signal Characteristics
 
 From an electrical and low-level signal perspective:
@@ -49,23 +34,15 @@ From an electrical and low-level signal perspective:
 variations (VPW) or NRZ (Non-Return-to-Zero), depending on the specific implementation generation.
 - **Timing:** Operating at a maximum speed of 10 kbps, the minimum bit duration is roughly 100 microseconds. This slow transmission rate makes the protocol highly resilient to the electromagnetic interference (EMI) commonly found in automotive environments, completely eliminating the need for shielded or twisted-pair wiring.
 - **Bit Encoding:** BEAN relies on simple fixd-time. A logical `1` is high voltage (5V or 12V) for 100μS, and a logical `0` is 0V for 100μS.
-- **Bit stuffing:** BEAN employs a technique used in digital communications called "bit stuffing" where extra, non-information bits are systematically inserted into a data stream. Please see "A Note on Bit Stuffing" below for more information.
+- **Bit stuffing:** BEAN employs a technique used in digital communications called "bit stuffing" where extra, non-information bits are systematically inserted into a data stream. 
 
-### A Simple Example
+### Understanding Bit Stuffing
 
-**Special Note: All timings from this example come from my 2000 Toyota Crown. Timings may vary in your car.**
-
----
-
-### A Note on Bit Stuffing
-
-In asynchronous serial protocols (like CAN bus, USB, and some implementations of the Toyota BEAN protocol), devices do not share a separate clock wire. Instead, the receiving device relies on the transition from 1 to 0 (or 0 to 1) in the data stream to keep its internal clock synchronized with the sender.
+It's important to understand bit stuff before we go too much furthen. In asynchronous serial protocols like BEAN, devices do not share a separate clock wire. Instead, the receiving device relies on the transition from 1 to 0 (or 0 to 1) in the data stream to keep its internal clock synchronized with the sender.
 
 If the data payload naturally contains a long sequence of identical bits (e.g., fifty 1s in a row), the signal voltage won't change for a long time. Without those voltage transitions, the receiver's clock might drift, causing it to lose count of how many bits were actually sent and corrupting the message.
 
-### How it works
-
-To prevent this, the protocol enforces a "stuffing" rule. For example, the CAN bus protocol uses a 5-bit stuffing rule:
+To prevent this, the protocol enforces a "stuffing" rule. Specifically, the BEAN bus protocol uses a 5-bit stuffing rule:
 
 **The Sender:** Monitors the data it is transmitting. If it sends 5 bits of the same logic level consecutively (e.g., 11111), it automatically inserts ("stuffs") one bit of the opposite logic level (0) into the stream.
 
@@ -73,7 +50,7 @@ To prevent this, the protocol enforces a "stuffing" rule. For example, the CAN b
 
 Another reason for bit stuffing is to create unique control sequences. If the protocol defines the End of Frame (EOF) sequence as six 1s in a row (111111), bit stuffing ensures that this sequence can never accidentally occur inside the regular data payload, preventing the receiver from prematurely ending the message.
 
-### A simple example
+#### A simple bit stuffing example
 
 Let's say we are sending the following data, and using a 5-bit stuffing rule:
 
@@ -83,6 +60,39 @@ Let's say we are sending the following data, and using a 5-bit stuffing rule:
 **Transmitted:**
 `1 1 1 1 1 [0] 1 0 0 0 0`
 
-(The [0] is the stuffed bit, forcing a transition).
+### Breaking down a BEAN message
+
+At the physical and data-link layers, BEAN uses a single-wire bus where the voltage level indicates the bit state. The bus utilizes a **dominant and recessive (low and high)** signaling method for arbitration, allowing the CSMA/CD (Carrier Sense Multiple Access with Collision Detection) mechanism to resolve collisions without data loss.
+
+A standard BEAN message frame consists of the following sequential fields:
+
+1. **Intra-frame space:** While technically not part of the message, the intra-frame space is important for knowing when a message will start. Before a message can be sent of the BEAN bus, the bus must be low for at least 6 standard pulse widths (600µS). Why 6? When transmitting data, no pulse (low or high) should ever be over 5 pulse widths (500µS) (see "A Note on Bit Stuffing" below), so if we see the bus going low for 6 pulse widths, we can be assured that this is not data, it's the space between the data. So even if we start listening in the middle of a BEAN message, we can know where to pick up the start of the next message by waiting for a 600µS (or more) break.
+2. **SOF (Start of Frame):** A dominant bit/pulse that wakes up the receiving nodes and synchronizes their timing to indicate a new message is beginning. SOF is one standard pulse width long.
+3. **PRI (Priority):** A 4-bit field that determines the message's priority. Lower values typically represent higher priority. If two ECUs transmit simultaneously, the one sending a dominant bit while the other sends a recessive bit wins arbitration and continues transmitting.
+4. **ML (Message Length):** A 4-bit field indicating the number of data bytes in the payload.
+5. **DEST ID (Destination ID):** An 8-bit field specifying the receiving ECU's address. It can target a specific node or act as a broadcast address.
+6. **SRC ID (Source ID):** An 8-bit field containing the address of the transmitting ECU.
+7. **DATA (Payload):** Between 1 and 11 bytes of actual information. This contains the commands (e.g., "roll down window") or status reports (e.g., "driver door is open").
+8. **CRC (Cyclic Redundancy Check):** An 8-bit checksum used by receivers to verify that the message wasn't corrupted by electrical noise during transmission.
+9. **EOD (End of Data):** A delimiter indicating the end of the payload and CRC.
+10. **ACK (Acknowledge):** A time slot where the targeted receiving ECU(s) pull the bus to the dominant state to confirm successful reception of the frame. If the sender does not see an ACK, it will typically retry the transmission (often up to 3 times).
+11. **EOF (End of Frame):** A sequence of recessive bits marking the absolute end of the message transmission, returning the bus to an idle state.
+
+
+
+### A Simple Example
+
+Before a new message can start, the BEAN bus must be low for at least 600µS. Why 600? When transmitting data, no pulse (low or high) should be over 500µS. So both EOF (600µS high/dominant) and  (dominant), then the bus must go low (recessive) for at least 600µS before a new message can be sent. When we're reading the bus, anything we see between the last EOF (600µS high) and a low that's at least 600µS long _must be ignored_. It is noise or incorrectly transmitted messages. So, the 600µS low acts as kind of a 
+
+**Special Note: All timings from this example come from my 2000 Toyota Crown. Timings may vary in your car.**
 
 <img width="1280" height="167" alt="image" src="https://github.com/user-attachments/assets/46ea182b-1760-4655-b7d8-270bc3fae1a3" />
+
+---
+
+
+
+(The [0] is the stuffed bit, forcing a transition.)
+
+
+
